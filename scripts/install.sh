@@ -6,10 +6,51 @@ ENV_FILE=.env.docker
 ENV_EXAMPLE=.env.docker.example
 COMPOSE_ENV_FILE=.env
 
-if ! command -v docker >/dev/null 2>&1; then
-  echo "docker is not installed. Please install Docker first." >&2
-  exit 1
-fi
+run_root() {
+  if [ "$(id -u)" -eq 0 ]; then
+    "$@"
+  elif command -v sudo >/dev/null 2>&1; then
+    sudo "$@"
+  else
+    echo "Root permissions are required to install Docker (no sudo found)." >&2
+    exit 1
+  fi
+}
+
+ensure_docker() {
+  if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
+    return 0
+  fi
+
+  if ! command -v curl >/dev/null 2>&1; then
+    if command -v apt-get >/dev/null 2>&1; then
+      run_root apt-get update
+      run_root apt-get install -y curl ca-certificates
+    else
+      echo "curl is required to install Docker automatically." >&2
+      exit 1
+    fi
+  fi
+
+  echo "Docker/compose not found. Installing Docker Engine..."
+  curl -fsSL https://get.docker.com | run_root sh
+
+  if command -v systemctl >/dev/null 2>&1; then
+    run_root systemctl enable --now docker || true
+  fi
+
+  if ! docker compose version >/dev/null 2>&1; then
+    if command -v apt-get >/dev/null 2>&1; then
+      run_root apt-get update
+      run_root apt-get install -y docker-compose-plugin
+    else
+      echo "docker compose plugin is not installed and could not be installed automatically." >&2
+      exit 1
+    fi
+  fi
+}
+
+ensure_docker
 
 if ! docker compose version >/dev/null 2>&1; then
   echo "docker compose plugin is not installed." >&2
