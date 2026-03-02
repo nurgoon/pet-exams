@@ -1,0 +1,11 @@
+﻿.git
+.gitignore
+.vscode
+node_modules
+dist
+npm-debug.log
+backend/__pycache__
+backend/.venv
+backend/venv
+backend/staticfiles
+backend/db.sqlite3
