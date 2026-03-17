@@ -960,7 +960,7 @@ const getExamStats = (examId: string) => {
 
 const getSubjectBadgeStyle = (exam: Exam): Record<string, string> => {
 
-  const color = exam.subjectColor && /^#[0-9a-fA-F]{6}$/.test(exam.subjectColor) '\u0411\u0435\u0437\u043e\u043f\u0430\u0441\u043d\u043e\u0441\u0442\u044c': {
+  const color = exam.subjectColor && /^#[0-9a-fA-F]{6}$/.test(exam.subjectColor) ? exam.subjectColor : '#2563eb'
 
   return { '--subject-color': color }
 
