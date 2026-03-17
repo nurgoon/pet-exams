@@ -58,6 +58,7 @@ nano .env.docker
 - `CSRF_TRUSTED_ORIGINS`
 - `CORS_ALLOWED_ORIGINS`
 - `APP_PORT` (уникальный порт для этого проекта)
+- `UPLOAD_MAX_MB` (лимит загрузки файлов, например `25`)
 
 Для автоматического HTTPS (Let's Encrypt) дополнительно укажи:
 - `DOMAIN` (например `grade.alwaysinit.ru`)
