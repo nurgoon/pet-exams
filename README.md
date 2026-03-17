@@ -71,6 +71,11 @@ sh scripts/install.sh
 
 Если в `.env.docker` заданы `DOMAIN` и `LETSENCRYPT_EMAIL`,
 скрипт автоматически настроит HTTPS через host nginx + Let's Encrypt.
+Также `install.sh` автоматически добавит домен в:
+- `DJANGO_ALLOWED_HOSTS`
+- `CSRF_TRUSTED_ORIGINS`
+- `CORS_ALLOWED_ORIGINS`
+и дождется состояния `backend (healthy)` перед завершением.
 
 One-liner для VPS (curl | sh):
 
@@ -88,7 +93,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\install.ps1
 
 ```bash
 cp .env.docker.example .env.docker
-docker compose -p pet-exam up -d --build
+docker compose -p pet-exams up -d --build
 ```
 
 Важно: переменные публикации порта (`APP_BIND_IP`, `APP_PORT`) берутся из `.env`

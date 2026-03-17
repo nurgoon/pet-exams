@@ -34,20 +34,20 @@ sudo systemctl start docker
 ## 3. Размещение проекта
 
 ```bash
-mkdir -p ~/apps/pet-exam
-cd ~/apps/pet-exam
+mkdir -p ~/apps/pet-exams
+cd ~/apps/pet-exams
 # сюда копируешь/клонируешь проект
 ```
 
 Рекомендуемая структура на VPS:
-- `~/apps/pet-exam`
+- `~/apps/pet-exams`
 - `~/apps/another-project`
 - `~/apps/selfhosted-tool`
 
 ## 4. Подготовка env
 
 ```bash
-cd ~/apps/pet-exam
+cd ~/apps/pet-exams
 cp .env.docker.example .env.docker
 nano .env.docker
 ```
@@ -84,32 +84,32 @@ sh scripts/install.sh
 One-liner вариант (`curl | sh`):
 
 ```bash
-curl -fsSL <RAW_BOOTSTRAP_URL> | REPO_URL=https://github.com/<user>/<repo>.git BRANCH=main APP_DIR=$HOME/apps/pet-exam sh
+curl -fsSL https://raw.githubusercontent.com/nurgoon/pet-exams/main/scripts/bootstrap.sh | REPO_URL=https://github.com/<user>/<repo>.git BRANCH=main APP_DIR=$HOME/apps/pet-exams sh
 ```
 
 Где:
-- `<RAW_BOOTSTRAP_URL>` — raw-ссылка на `scripts/bootstrap.sh` в твоем репозитории.
+- `https://raw.githubusercontent.com/nurgoon/pet-exams/main/scripts/bootstrap.sh` — raw-ссылка на `scripts/bootstrap.sh` в твоем репозитории.
 
 Или вручную:
 
 ```bash
-docker compose -p pet-exam up -d --build
+docker compose -p pet-exams up -d --build
 ```
 
 Пояснение:
-- `-p pet-exam` задает уникальное имя проекта Docker (сети/контейнеры не конфликтуют с другими).
+- `-p pet-exams` задает уникальное имя проекта Docker (сети/контейнеры не конфликтуют с другими).
 
 Проверка:
 ```bash
-docker compose -p pet-exam ps
-docker compose -p pet-exam logs -f backend
-docker compose -p pet-exam logs -f frontend
+docker compose -p pet-exams ps
+docker compose -p pet-exams logs -f backend
+docker compose -p pet-exams logs -f frontend
 ```
 
 ## 6. Создать суперпользователя
 
 ```bash
-docker compose -p pet-exam exec backend python manage.py createsuperuser
+docker compose -p pet-exams exec backend python manage.py createsuperuser
 ```
 
 ## 7. Открыть приложение
@@ -125,9 +125,9 @@ docker compose -p pet-exam exec backend python manage.py createsuperuser
 ## 8. Обновление приложения
 
 ```bash
-cd ~/apps/pet-exam
+cd ~/apps/pet-exams
 # git pull (если используешь git)
-docker compose -p pet-exam up -d --build
+docker compose -p pet-exams up -d --build
 ```
 
 Миграции/статика выполняются автоматически в `entrypoint.sh`.
@@ -137,7 +137,7 @@ docker compose -p pet-exam up -d --build
 База лежит в `backend/db.sqlite3` (bind mount).
 
 ```bash
-cd ~/apps/pet-exam
+cd ~/apps/pet-exams
 cp backend/db.sqlite3 backup_$(date +%F_%H-%M).sqlite3
 ```
 
@@ -161,3 +161,4 @@ cp backend/db.sqlite3 backup_$(date +%F_%H-%M).sqlite3
 - DNS `A/AAAA` для `DOMAIN` указывает на VPS
 - на сервере открыты порты `80` и `443`
 - в `.env.docker` заполнены `DOMAIN` и `LETSENCRYPT_EMAIL`
+

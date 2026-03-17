@@ -66,3 +66,43 @@ export interface LearningRecord {
   createdAt: string
 }
 
+export interface QuestProfile {
+  userName: string
+  exp: number
+  rubCents: number
+  completedToday: number
+}
+
+export interface Quest {
+  id: string
+  title: string
+  description: string
+  category?: string
+  repeat: 'daily' | 'once'
+  rewardExp: number
+  rewardRubCents: number
+  requiresApproval: boolean
+  requiresProof: boolean
+  isActive: boolean
+  completed: boolean
+  completedAt?: string | null
+  submissionStatus?: 'pending' | 'approved' | 'rejected' | null
+  submissionId?: string | number | null
+  submittedAt?: string | null
+  reviewedAt?: string | null
+  reviewComment?: string | null
+}
+
+export interface QuestLeaderboardEntry {
+  userName: string
+  exp: number
+  rubCents: number
+}
+
+export interface DutyAssignment {
+  id: string
+  dutyType: 'cleaning'
+  businessDate: string
+  userName: string
+  notes: string
+}

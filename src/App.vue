@@ -9,8 +9,9 @@ import {
 import { fetchAttempts, fetchExams, fetchUserStats, submitAttempt } from './lib/api'
 import { exams as seedExams } from './data/exams'
 import type { Attempt, Exam, ExamQuestion, LearningRecord, SprintResult } from './types'
+import StaffHome from './components/StaffHome.vue'
 
-type Tab = 'catalog' | 'leaderboard' | 'sprint' | 'learning'
+type Tab = 'staff' | 'catalog' | 'leaderboard' | 'sprint' | 'learning'
 type ReviewFilter = 'all' | 'wrong' | 'correct'
 type Theme = 'light' | 'dark'
 interface ExamReviewItem {
@@ -36,7 +37,7 @@ interface ExamReview {
   items: ExamReviewItem[]
 }
 
-const tab = ref<Tab>('catalog')
+const tab = ref<Tab>('staff')
 const storedUserName = localStorage.getItem('pet-user-name')?.trim() ?? ''
 const userName = ref(storedUserName || 'Student')
 const selectedSubject = ref('all')
@@ -294,6 +295,16 @@ const applyTheme = (value: Theme): void => {
 
 const toggleTheme = (): void => {
   theme.value = theme.value === 'dark' ? 'light' : 'dark'
+}
+
+const logoutUser = (): void => {
+  userName.value = ''
+  onboardingName.value = ''
+  onboardingDone.value = false
+  onboardingAccepted.value = false
+  tab.value = 'staff'
+  localStorage.removeItem('pet-user-name')
+  localStorage.removeItem('pet-onboarding-done')
 }
 
 const completeOnboarding = (): void => {
@@ -769,11 +780,41 @@ onBeforeUnmount(() => {
     </section>
 
     <div v-else>
-    <div class="app-topbar">
-      <span class="app-topbar-user">{{ userName }}</span>
-      <button @click="toggleTheme">{{ theme === 'dark' ? 'Светлая тема' : 'Темная тема' }}</button>
-    </div>
-    <section v-if="tab === 'catalog' && !activeExam && examReview" class="panel-stack">
+      <div class="app-topbar">
+        <span class="app-topbar-user">{{ userName }}</span>
+        <button @click="toggleTheme">{{ theme === 'dark' ? 'Светлая тема' : 'Темная тема' }}</button>
+      </div>
+
+      <article v-if="!activeExam" class="card hero">
+        <div>
+          <h1>Главная</h1>
+          <p class="lead">Квесты, задачи, аттестация и рейтинг.</p>
+        </div>
+        <div class="hero-controls">
+          <div class="username-display">
+            <span class="muted">Сотрудник</span>
+            <strong>{{ userName }}</strong>
+          </div>
+          <div class="hero-links">
+            <a class="admin-link" href="http://127.0.0.1:8000/admin/" target="_blank" rel="noopener noreferrer">
+              Админка
+            </a>
+            <button class="ghost-button" @click="logoutUser">Выход</button>
+          </div>
+        </div>
+      </article>
+
+      <nav v-if="!activeExam" class="tabs">
+        <button :class="{ active: tab === 'staff' }" @click="tab = 'staff'">Главная</button>
+        <button :class="{ active: tab === 'catalog' }" @click="tab = 'catalog'">Тесты</button>
+        <button :class="{ active: tab === 'learning' }" @click="tab = 'learning'">Обучение</button>
+        <button :class="{ active: tab === 'sprint' }" @click="tab = 'sprint'">Спринт</button>
+        <button :class="{ active: tab === 'leaderboard' }" @click="tab = 'leaderboard'">Лидерборд</button>
+      </nav>
+
+      <StaffHome v-if="tab === 'staff' && !activeExam" :user-name="userName" />
+
+      <section v-if="tab === 'catalog' && !activeExam && examReview" class="panel-stack">
       <article class="card result-page">
         <div v-if="resultStatus" class="result-status-hero" :class="resultStatus.tone">
           <img :src="resultStatus.icon" :alt="resultStatus.label" loading="lazy" />

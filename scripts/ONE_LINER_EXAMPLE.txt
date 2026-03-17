@@ -1,3 +1,4 @@
 ﻿# One-liner bootstrap for VPS
-# Replace <RAW_BOOTSTRAP_URL> with raw URL to scripts/bootstrap.sh in your repo
-curl -fsSL <RAW_BOOTSTRAP_URL> | REPO_URL=https://github.com/<user>/<repo>.git BRANCH=main APP_DIR=$HOME/apps/pet-exam sh
+# Replace https://raw.githubusercontent.com/nurgoon/pet-exams/main/scripts/bootstrap.sh with raw URL to scripts/bootstrap.sh in your repo
+curl -fsSL https://raw.githubusercontent.com/nurgoon/pet-exams/main/scripts/bootstrap.sh | REPO_URL=https://github.com/nurgoon/pet-exams.git BRANCH=main APP_DIR=$HOME/apps/pet-exams sh
+

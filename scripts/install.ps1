@@ -1,6 +1,6 @@
-$ErrorActionPreference = 'Stop'
+﻿$ErrorActionPreference = 'Stop'
 
-$projectName = if ($env:COMPOSE_PROJECT_NAME) { $env:COMPOSE_PROJECT_NAME } else { 'pet-exam' }
+$projectName = if ($env:COMPOSE_PROJECT_NAME) { $env:COMPOSE_PROJECT_NAME } else { 'pet-exams' }
 $envFile = '.env.docker'
 $envExample = '.env.docker.example'
 $composeEnvFile = '.env'
@@ -56,3 +56,4 @@ docker compose --env-file $envFile -p $projectName up -d --build
 Write-Host 'Done.'
 Write-Host "Application: http://${appBindIp}:${appPort}"
 Write-Host "Admin: http://${appBindIp}:${appPort}/admin/"
+

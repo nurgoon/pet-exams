@@ -1,7 +1,11 @@
 ﻿from pathlib import Path
 import os
+from urllib.parse import urlparse
+
+from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR / '.env')
 
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'dev-only-secret-key-change-me')
 DEBUG = os.getenv('DJANGO_DEBUG', '0') == '1'
@@ -23,11 +27,16 @@ INSTALLED_APPS = [
     'corsheaders',
     'rest_framework',
     'exams',
+    'quests',
+    'notifications',
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',
+]
+if not DEBUG:
+    MIDDLEWARE.append('whitenoise.middleware.WhiteNoiseMiddleware')
+MIDDLEWARE += [
     'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -105,7 +114,15 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_USE_MANIFEST = os.getenv('STATICFILES_USE_MANIFEST', '0') == '1'
+STATICFILES_DIRS = [
+    BASE_DIR / 'static',
+]
+WHITENOISE_USE_FINDERS = DEBUG
+WHITENOISE_AUTOREFRESH = DEBUG
 STORAGES = {
+    'default': {
+        'BACKEND': 'django.core.files.storage.FileSystemStorage',
+    },
     'staticfiles': {
         'BACKEND': (
             'whitenoise.storage.CompressedManifestStaticFilesStorage'
@@ -117,8 +134,19 @@ STORAGES = {
 WHITENOISE_MANIFEST_STRICT = os.getenv('WHITENOISE_MANIFEST_STRICT', '0') == '1'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+CORS_ALLOWED_ORIGINS = []
 cors_origins = os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:5173,http://127.0.0.1:5173')
-CORS_ALLOWED_ORIGINS = [origin.strip() for origin in cors_origins.split(',') if origin.strip()]
+for origin in cors_origins.split(','):
+    origin = origin.strip()
+    if not origin:
+        continue
+    parts = urlparse(origin)
+    if not parts.scheme or not parts.netloc:
+        continue
+    CORS_ALLOWED_ORIGINS.append(origin)
 CORS_ALLOW_CREDENTIALS = True
 
 csrf_origins = os.getenv('CSRF_TRUSTED_ORIGINS', '')
@@ -145,6 +173,10 @@ REST_FRAMEWORK = {
     # when browser has admin session cookie on the same domain.
     'DEFAULT_AUTHENTICATION_CLASSES': [],
 }
+
+VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY', '')
+VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '')
+VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', 'mailto:admin@example.com')
 
 JAZZMIN_SETTINGS = {
     'site_title': 'Админ-панель',
@@ -173,13 +205,16 @@ JAZZMIN_SETTINGS = {
     'changeform_format_overrides': {
         'exams.question': 'horizontal_tabs',
     },
+    'custom_js': ['admin/force-light-mode.js'],
+    'custom_css': ['admin/force-light-mode.css'],
 }
 
 JAZZMIN_UI_TWEAKS = {
     'theme': 'flatly',
-    'dark_mode_theme': 'darkly',
-    'navbar': 'navbar-dark',
+    'navbar': 'navbar-light',
     'accent': 'accent-primary',
     'navbar_small_text': False,
     'footer_small_text': True,
+    'default_theme_mode': 'light',
 }
+

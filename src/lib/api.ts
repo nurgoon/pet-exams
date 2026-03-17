@@ -1,6 +1,14 @@
-import type { Attempt, Exam, SprintResult } from '../types'
+import type {
+  Attempt,
+  DutyAssignment,
+  Exam,
+  Quest,
+  QuestLeaderboardEntry,
+  QuestProfile,
+  SprintResult,
+} from '../types'
 
-const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? '/api'
+const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined) || '/api'
 
 interface ApiExam {
   id: number
@@ -163,3 +171,143 @@ export const fetchUserStats = async (): Promise<
 
 export const fetchSprintResults = async (): Promise<SprintResult[]> => []
 
+interface ApiQuest {
+  id: number
+  title: string
+  description: string
+  category: string
+  repeat: 'daily' | 'once'
+  reward_exp: number
+  reward_rub_cents: number
+  requires_approval: boolean
+  requires_proof: boolean
+  is_active: boolean
+  completed: boolean
+  completed_at?: string | null
+  submission_status?: 'pending' | 'approved' | 'rejected' | null
+  submission_id?: number | null
+  submitted_at?: string | null
+  reviewed_at?: string | null
+  review_comment?: string | null
+}
+
+interface ApiQuestProfile {
+  user_name: string
+  exp: number
+  rub_cents: number
+  completed_today: number
+}
+
+const mapQuest = (item: ApiQuest): Quest => ({
+  id: String(item.id),
+  title: item.title,
+  description: item.description,
+  category: item.category || '',
+  repeat: item.repeat,
+  rewardExp: item.reward_exp ?? 0,
+  rewardRubCents: item.reward_rub_cents ?? 0,
+  requiresApproval: item.requires_approval,
+  requiresProof: item.requires_proof,
+  isActive: item.is_active,
+  completed: Boolean(item.completed),
+  completedAt: item.completed_at ?? null,
+  submissionStatus: item.submission_status ?? null,
+  submissionId: item.submission_id ?? null,
+  submittedAt: item.submitted_at ?? null,
+  reviewedAt: item.reviewed_at ?? null,
+  reviewComment: item.review_comment ?? null,
+})
+
+export const fetchQuestProfile = async (userName: string): Promise<QuestProfile> => {
+  const data = await get<ApiQuestProfile>(`/quests/profile/?user_name=${encodeURIComponent(userName)}`)
+  return {
+    userName: data.user_name,
+    exp: data.exp,
+    rubCents: data.rub_cents,
+    completedToday: data.completed_today,
+  }
+}
+
+export const fetchQuests = async (userName: string): Promise<Quest[]> => {
+  const data = await get<ApiQuest[]>(`/quests/?user_name=${encodeURIComponent(userName)}`)
+  return data.map(mapQuest)
+}
+
+export const completeQuest = async (
+  questId: string,
+  payload: { userName: string; businessDate?: string; notes?: string }
+): Promise<{
+  created: boolean
+  exp: number
+  rub_cents: number
+  completion: { id: number; quest_id: number; business_date: string; completed_at: string }
+}> => {
+  const body = {
+    user_name: payload.userName,
+    business_date: payload.businessDate,
+    notes: payload.notes,
+  }
+  return post(`/quests/${questId}/complete/`, body)
+}
+
+export const submitQuest = async (
+  questId: string,
+  payload: { userName: string; businessDate?: string; notes?: string; proofImage?: File | null }
+): Promise<{
+  created: boolean
+  submission: { id: number; status: string; business_date: string; created_at: string }
+}> => {
+  const form = new FormData()
+  form.set('user_name', payload.userName)
+  if (payload.businessDate) {
+    form.set('business_date', payload.businessDate)
+  }
+  if (payload.notes) {
+    form.set('notes', payload.notes)
+  }
+  if (payload.proofImage) {
+    form.set('proof_image', payload.proofImage)
+  }
+
+  const response = await fetch(`${API_BASE}/quests/${questId}/submit/`, {
+    method: 'POST',
+    body: form,
+  })
+  if (!response.ok) {
+    throw new Error(`API request failed: ${response.status}`)
+  }
+  return (await response.json()) as {
+    created: boolean
+    submission: { id: number; status: string; business_date: string; created_at: string }
+  }
+}
+
+export const fetchQuestLeaderboard = async (top = 25): Promise<QuestLeaderboardEntry[]> => {
+  const data = await get<Array<{ user_name: string; exp: number; rub_cents: number }>>(`/quests/leaderboard/?top=${top}`)
+  return data.map((item) => ({ userName: item.user_name, exp: item.exp, rubCents: item.rub_cents }))
+}
+
+export const fetchDuties = async ({
+  dutyType = 'cleaning',
+  from,
+  days = 7,
+}: {
+  dutyType?: 'cleaning'
+  from?: string
+  days?: number
+}): Promise<DutyAssignment[]> => {
+  const params = new URLSearchParams()
+  params.set('duty_type', dutyType)
+  if (from) params.set('from', from)
+  if (days) params.set('days', String(days))
+  const data = await get<Array<{ id: number; duty_type: 'cleaning'; business_date: string; user_name: string; notes: string }>>(
+    `/duties/?${params.toString()}`
+  )
+  return data.map((item) => ({
+    id: String(item.id),
+    dutyType: item.duty_type,
+    businessDate: item.business_date,
+    userName: item.user_name,
+    notes: item.notes,
+  }))
+}

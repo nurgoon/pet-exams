@@ -1,10 +1,52 @@
 #!/usr/bin/env sh
 set -e
 
-PROJECT_NAME=${COMPOSE_PROJECT_NAME:-pet-exam}
+PROJECT_NAME=${COMPOSE_PROJECT_NAME:-pet-exams}
 ENV_FILE=.env.docker
 ENV_EXAMPLE=.env.docker.example
 COMPOSE_ENV_FILE=.env
+
+append_csv_unique() {
+  list="$1"
+  item="$2"
+  found=0
+  out=""
+  old_ifs=$IFS
+  IFS=','
+  for part in $list; do
+    [ -z "$part" ] && continue
+    if [ "$part" = "$item" ]; then
+      found=1
+    fi
+    if [ -z "$out" ]; then
+      out="$part"
+    else
+      out="$out,$part"
+    fi
+  done
+  IFS=$old_ifs
+  if [ "$found" -eq 0 ]; then
+    if [ -n "$out" ]; then
+      out="$out,$item"
+    else
+      out="$item"
+    fi
+  fi
+  echo "$out"
+}
+
+set_env_var() {
+  key="$1"
+  value="$2"
+  tmp_file="${ENV_FILE}.tmp"
+  awk -v k="$key" -v v="$value" '
+    BEGIN { done=0 }
+    $0 ~ ("^" k "=") { print k "=" v; done=1; next }
+    { print }
+    END { if (!done) print k "=" v }
+  ' "$ENV_FILE" > "$tmp_file"
+  mv "$tmp_file" "$ENV_FILE"
+}
 
 run_root() {
   if [ "$(id -u)" -eq 0 ]; then
@@ -84,6 +126,20 @@ APP_PORT=${APP_PORT:-18080}
 DOMAIN=${DOMAIN:-}
 LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL:-}
 
+if [ -n "$DOMAIN" ]; then
+  DJANGO_ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1}
+  CSRF_TRUSTED_ORIGINS=${CSRF_TRUSTED_ORIGINS:-}
+  CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-}
+
+  DJANGO_ALLOWED_HOSTS=$(append_csv_unique "$DJANGO_ALLOWED_HOSTS" "$DOMAIN")
+  CSRF_TRUSTED_ORIGINS=$(append_csv_unique "$CSRF_TRUSTED_ORIGINS" "https://$DOMAIN")
+  CORS_ALLOWED_ORIGINS=$(append_csv_unique "$CORS_ALLOWED_ORIGINS" "https://$DOMAIN")
+
+  set_env_var "DJANGO_ALLOWED_HOSTS" "$DJANGO_ALLOWED_HOSTS"
+  set_env_var "CSRF_TRUSTED_ORIGINS" "$CSRF_TRUSTED_ORIGINS"
+  set_env_var "CORS_ALLOWED_ORIGINS" "$CORS_ALLOWED_ORIGINS"
+fi
+
 cat > "$COMPOSE_ENV_FILE" <<EOF
 APP_BIND_IP=$APP_BIND_IP
 APP_PORT=$APP_PORT
@@ -91,6 +147,22 @@ EOF
 
 echo "Starting containers (project: $PROJECT_NAME)..."
 docker compose --env-file "$ENV_FILE" -p "$PROJECT_NAME" up -d --build
+
+echo "Waiting for backend health..."
+retries=90
+while [ "$retries" -gt 0 ]; do
+  if docker compose --env-file "$ENV_FILE" -p "$PROJECT_NAME" ps backend | grep -q "(healthy)"; then
+    break
+  fi
+  retries=$((retries - 1))
+  sleep 2
+done
+
+if [ "$retries" -eq 0 ]; then
+  echo "Backend did not become healthy in time. Last backend logs:" >&2
+  docker compose --env-file "$ENV_FILE" -p "$PROJECT_NAME" logs --tail=120 backend >&2 || true
+  exit 1
+fi
 
 echo "Application: http://$APP_BIND_IP:$APP_PORT"
 echo "Admin: http://$APP_BIND_IP:$APP_PORT/admin/"
