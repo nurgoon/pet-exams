@@ -23,6 +23,12 @@ def compress_image(field_file, max_side: int = 1600, quality: int = 78) -> Conte
 
 class Employee(models.Model):
     name = models.CharField('Сотрудник', max_length=120, unique=True, db_index=True)
+    phone = models.CharField('Phone', max_length=32, blank=True, default='', db_index=True)
+    phone_verified = models.BooleanField('Phone verified', default=False)
+    phone_code_hash = models.CharField('Phone code hash', max_length=128, blank=True, default='')
+    phone_code_expires_at = models.DateTimeField('Phone code expires at', null=True, blank=True)
+    phone_code_attempts = models.IntegerField('Phone code attempts', default=0)
+    phone_code_last_sent_at = models.DateTimeField('Phone code last sent at', null=True, blank=True)
     created_at = models.DateTimeField('Создан', auto_now_add=True)
     updated_at = models.DateTimeField('Обновлен', auto_now=True)
 
@@ -206,3 +212,5 @@ class DutyAssignment(models.Model):
 
     def __str__(self) -> str:
         return f'{self.get_duty_type_display()} {self.business_date}: {self.employee.name}'
+
+

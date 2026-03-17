@@ -71,8 +71,22 @@ export interface SubmitResponse {
   }>
 }
 
+const getAuthHeaders = (): Record<string, string> => {
+  const userName = localStorage.getItem('pet-user-name')?.trim() ?? ''
+  const userPhone = localStorage.getItem('pet-user-phone')?.trim() ?? ''
+  if (!userName || !userPhone) {
+    return {}
+  }
+  return {
+    'X-User-Name': userName,
+    'X-User-Phone': userPhone,
+  }
+}
+
 const get = async <T>(path: string): Promise<T> => {
-  const response = await fetch(`${API_BASE}${path}`)
+  const response = await fetch(`${API_BASE}${path}`, {
+    headers: getAuthHeaders(),
+  })
   if (!response.ok) {
     throw new Error(`API request failed: ${response.status}`)
   }
@@ -81,9 +95,10 @@ const get = async <T>(path: string): Promise<T> => {
 }
 
 const post = async <T>(path: string, payload: unknown): Promise<T> => {
+  const authHeaders = getAuthHeaders()
   const response = await fetch(`${API_BASE}${path}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders },
     body: JSON.stringify(payload),
   })
 
@@ -228,6 +243,19 @@ export const fetchQuestProfile = async (userName: string): Promise<QuestProfile>
   }
 }
 
+export const requestSmsCode = async (payload: {
+  userName: string
+  phone: string
+}): Promise<{ sent: boolean; expires_in: number }> =>
+  post('/auth/request_code/', { user_name: payload.userName, phone: payload.phone })
+
+export const verifySmsCode = async (payload: {
+  userName: string
+  phone: string
+  code: string
+}): Promise<{ verified: boolean }> =>
+  post('/auth/verify_code/', { user_name: payload.userName, phone: payload.phone, code: payload.code })
+
 export const fetchQuests = async (userName: string): Promise<Quest[]> => {
   const data = await get<ApiQuest[]>(`/quests/?user_name=${encodeURIComponent(userName)}`)
   return data.map(mapQuest)
@@ -271,6 +299,7 @@ export const submitQuest = async (
 
   const response = await fetch(`${API_BASE}/quests/${questId}/submit/`, {
     method: 'POST',
+    headers: getAuthHeaders(),
     body: form,
   })
   if (!response.ok) {

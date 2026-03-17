@@ -40,6 +40,7 @@ MIDDLEWARE += [
     'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
+    'backend.middleware.ApiPhoneVerificationMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
@@ -181,6 +182,13 @@ REST_FRAMEWORK = {
 VAPID_PUBLIC_KEY = os.getenv('VAPID_PUBLIC_KEY', '')
 VAPID_PRIVATE_KEY = os.getenv('VAPID_PRIVATE_KEY', '')
 VAPID_SUBJECT = os.getenv('VAPID_SUBJECT', 'mailto:admin@example.com')
+
+SMSRU_API_KEY = os.getenv('SMSRU_API_KEY', '')
+SMSRU_SENDER = os.getenv('SMSRU_SENDER', '')
+SMS_CODE_TTL_MINUTES = int(os.getenv('SMS_CODE_TTL_MINUTES', '5'))
+SMS_CODE_LENGTH = int(os.getenv('SMS_CODE_LENGTH', '4'))
+SMS_CODE_COOLDOWN_SECONDS = int(os.getenv('SMS_CODE_COOLDOWN_SECONDS', '60'))
+SMS_CODE_MAX_ATTEMPTS = int(os.getenv('SMS_CODE_MAX_ATTEMPTS', '5'))
 
 JAZZMIN_SETTINGS = {
     'site_title': 'Админ-панель',

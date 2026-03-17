@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, timedelta
+import os
 
 from django.utils import timezone
 from rest_framework import status
@@ -8,6 +9,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import DutyAssignment, Employee, EmployeeWallet, Quest, QuestCompletion, QuestSubmission
+from .utils import can_send_sms, generate_sms_code, hash_sms_code, normalize_phone, send_sms_ru
 from .serializers import (
     CompleteQuestSerializer,
     DutyAssignmentSerializer,
@@ -294,3 +296,109 @@ class DutyListAPIView(APIView):
             .order_by('business_date', 'duty_type')
         )
         return Response(DutyAssignmentSerializer(qs, many=True).data)
+
+
+class RequestSmsCodeAPIView(APIView):
+    def post(self, request):
+        user_name = (request.data.get('user_name') or '').strip()
+        raw_phone = (request.data.get('phone') or '').strip()
+        if not user_name:
+            return Response({'detail': 'user_name required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        phone = normalize_phone(raw_phone)
+        if not phone:
+            return Response({'detail': 'invalid phone'}, status=status.HTTP_400_BAD_REQUEST)
+
+        api_key = os.getenv('SMSRU_API_KEY', '').strip()
+        sender = os.getenv('SMSRU_SENDER', '').strip()
+        if not api_key:
+            return Response({'detail': 'SMS service not configured'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+        ttl_minutes = int(os.getenv('SMS_CODE_TTL_MINUTES', '5'))
+        length = int(os.getenv('SMS_CODE_LENGTH', '4'))
+        cooldown = int(os.getenv('SMS_CODE_COOLDOWN_SECONDS', '60'))
+
+        employee, _ = Employee.objects.get_or_create(name=user_name)
+        if employee.phone_verified and employee.phone and employee.phone != phone:
+            return Response({'detail': 'phone mismatch'}, status=status.HTTP_403_FORBIDDEN)
+
+        if not can_send_sms(employee.phone_code_last_sent_at, cooldown):
+            return Response({'detail': 'code already sent, try later'}, status=status.HTTP_429_TOO_MANY_REQUESTS)
+
+        code = generate_sms_code(length)
+        employee.phone = phone
+        employee.phone_code_hash = hash_sms_code(phone, code)
+        employee.phone_code_expires_at = timezone.now() + timedelta(minutes=ttl_minutes)
+        employee.phone_code_attempts = 0
+        employee.phone_code_last_sent_at = timezone.now()
+        employee.phone_verified = False
+        employee.save(
+            update_fields=[
+                'phone',
+                'phone_code_hash',
+                'phone_code_expires_at',
+                'phone_code_attempts',
+                'phone_code_last_sent_at',
+                'phone_verified',
+                'updated_at',
+            ]
+        )
+
+        message = f'Код подтверждения: {code}'
+        response_text = send_sms_ru(api_key=api_key, sender=sender, phone=phone, message=message)
+        if not response_text.startswith('100'):
+            return Response({'detail': 'sms failed', 'provider': response_text}, status=status.HTTP_502_BAD_GATEWAY)
+
+        return Response({'sent': True, 'expires_in': ttl_minutes * 60})
+
+
+class VerifySmsCodeAPIView(APIView):
+    def post(self, request):
+        user_name = (request.data.get('user_name') or '').strip()
+        raw_phone = (request.data.get('phone') or '').strip()
+        code = (request.data.get('code') or '').strip()
+        if not user_name or not raw_phone or not code:
+            return Response({'detail': 'user_name, phone, code required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        phone = normalize_phone(raw_phone)
+        if not phone:
+            return Response({'detail': 'invalid phone'}, status=status.HTTP_400_BAD_REQUEST)
+
+        employee = Employee.objects.filter(name=user_name).first()
+        if not employee:
+            return Response({'detail': 'user not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        if employee.phone != phone:
+            return Response({'detail': 'phone mismatch'}, status=status.HTTP_403_FORBIDDEN)
+
+        if not employee.phone_code_hash or not employee.phone_code_expires_at:
+            return Response({'detail': 'code not requested'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if employee.phone_code_expires_at < timezone.now():
+            return Response({'detail': 'code expired'}, status=status.HTTP_400_BAD_REQUEST)
+
+        max_attempts = int(os.getenv('SMS_CODE_MAX_ATTEMPTS', '5'))
+        if employee.phone_code_attempts >= max_attempts:
+            return Response({'detail': 'too many attempts'}, status=status.HTTP_429_TOO_MANY_REQUESTS)
+
+        expected = hash_sms_code(phone, code)
+        if expected != employee.phone_code_hash:
+            employee.phone_code_attempts += 1
+            employee.save(update_fields=['phone_code_attempts', 'updated_at'])
+            return Response({'detail': 'invalid code'}, status=status.HTTP_400_BAD_REQUEST)
+
+        employee.phone_verified = True
+        employee.phone_code_hash = ''
+        employee.phone_code_expires_at = None
+        employee.phone_code_attempts = 0
+        employee.save(
+            update_fields=[
+                'phone_verified',
+                'phone_code_hash',
+                'phone_code_expires_at',
+                'phone_code_attempts',
+                'updated_at',
+            ]
+        )
+
+        return Response({'verified': True})
