@@ -21,6 +21,7 @@ const duties = ref<DutyAssignment[]>([])
 const loading = ref(false)
 const error = ref<string | null>(null)
 const completingId = ref<string | null>(null)
+const uploadingId = ref<string | null>(null)
 const proofFiles = ref<Record<string, File | null>>({})
 const soundEnabled = ref(localStorage.getItem('protocol-sound') !== '0')
 
@@ -106,7 +107,7 @@ const complete = async (quest: Quest): Promise<void> => {
 }
 
 const submitForReview = async (quest: Quest): Promise<void> => {
-  if (quest.completed || completingId.value) {
+  if (quest.completed || completingId.value || uploadingId.value) {
     return
   }
   const normalized = props.userName.trim()
@@ -121,6 +122,7 @@ const submitForReview = async (quest: Quest): Promise<void> => {
   }
 
   completingId.value = quest.id
+  uploadingId.value = quest.id
   error.value = null
   try {
     await submitQuest(quest.id, { userName: normalized, proofImage })
@@ -131,6 +133,7 @@ const submitForReview = async (quest: Quest): Promise<void> => {
     error.value = err instanceof Error ? err.message : 'Не удалось отправить на проверку'
   } finally {
     completingId.value = null
+    uploadingId.value = null
   }
 }
 
@@ -271,12 +274,18 @@ onMounted(() => {
               v-if="!quest.completed && quest.requiresProof && quest.submissionStatus !== 'pending'"
               type="file"
               accept="image/*"
+              :disabled="uploadingId === quest.id"
               @change="(e) => (proofFiles[quest.id] = (e.target as HTMLInputElement).files?.[0] ?? null)"
             />
             <button
               class="cta"
               :class="{ 'cta-success': quest.completed }"
-              :disabled="quest.completed || quest.submissionStatus === 'pending' || completingId === quest.id"
+              :disabled="
+                quest.completed ||
+                quest.submissionStatus === 'pending' ||
+                completingId === quest.id ||
+                uploadingId === quest.id
+              "
               @click="quest.requiresApproval || quest.requiresProof ? submitForReview(quest) : complete(quest)"
             >
               {{
@@ -284,8 +293,10 @@ onMounted(() => {
                   ? 'Выполнено'
                   : quest.submissionStatus === 'pending'
                     ? 'На проверке'
-                    : completingId === quest.id
-                      ? '...'
+                    : uploadingId === quest.id
+                      ? 'Загрузка...'
+                      : completingId === quest.id
+                        ? '...'
                       : quest.requiresApproval || quest.requiresProof
                         ? 'Отправить на проверку'
                         : 'Забрать награду'

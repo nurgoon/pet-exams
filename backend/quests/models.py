@@ -1,9 +1,24 @@
 from __future__ import annotations
 
 from datetime import date
+from io import BytesIO
 
+from django.core.files.base import ContentFile
 from django.db import models, transaction
 from django.db.models import Q
+from django.db.models.signals import post_delete, pre_save
+from django.dispatch import receiver
+from PIL import Image
+
+
+def compress_image(field_file, max_side: int = 1600, quality: int = 78) -> ContentFile:
+    image = Image.open(field_file)
+    if image.mode in ("RGBA", "P"):
+        image = image.convert("RGB")
+    image.thumbnail((max_side, max_side), Image.LANCZOS)
+    buffer = BytesIO()
+    image.save(buffer, format="JPEG", quality=quality, optimize=True)
+    return ContentFile(buffer.getvalue())
 
 
 class Employee(models.Model):
@@ -139,9 +154,35 @@ class QuestSubmission(models.Model):
             ),
         ]
 
+    def save(self, *args, **kwargs) -> None:
+        if self.proof_image:
+            is_new = self._state.adding
+            if not is_new and self.pk:
+                old = QuestSubmission.objects.filter(pk=self.pk).first()
+                if old and old.proof_image != self.proof_image:
+                    is_new = True
+            if is_new:
+                compressed = compress_image(self.proof_image)
+                self.proof_image.save(self.proof_image.name, compressed, save=False)
+        super().save(*args, **kwargs)
+
     def __str__(self) -> str:
         return f'{self.employee.name}: {self.quest.title} ({self.business_date}) [{self.status}]'
 
+
+@receiver(post_delete, sender=QuestSubmission)
+def delete_proof_on_delete(sender, instance: QuestSubmission, **kwargs) -> None:
+    if instance.proof_image:
+        instance.proof_image.delete(save=False)
+
+
+@receiver(pre_save, sender=QuestSubmission)
+def delete_old_proof_on_change(sender, instance: QuestSubmission, **kwargs) -> None:
+    if not instance.pk:
+        return
+    old = QuestSubmission.objects.filter(pk=instance.pk).first()
+    if old and old.proof_image and old.proof_image != instance.proof_image:
+        old.proof_image.delete(save=False)
 
 class DutyAssignment(models.Model):
     DUTY_CHOICES = [
