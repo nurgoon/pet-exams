@@ -1,6 +1,7 @@
 ﻿from pathlib import Path
 import os
 from urllib.parse import urlparse
+from corsheaders.defaults import default_headers
 
 from dotenv import load_dotenv
 
@@ -153,6 +154,7 @@ for origin in cors_origins.split(','):
         continue
     CORS_ALLOWED_ORIGINS.append(origin)
 CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_HEADERS = list(default_headers) + ['x-user-name', 'x-user-phone']
 
 csrf_origins = os.getenv('CSRF_TRUSTED_ORIGINS', '')
 CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in csrf_origins.split(',') if origin.strip()]
