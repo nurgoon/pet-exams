@@ -1,21 +1,21 @@
-# Changelog
+# Журнал изменений
 
 ## 2026-03-17
-### Added
-- Staff “Cabinet” main page with quests, rewards, and daily progress.
-- Quest submissions with photo proof and manual approval flow.
-- Duty schedule (cleaning) view on staff page.
-- PWA assets (manifest, service worker, app icons).
-- Admin quick actions for approving/rejecting submissions.
-- Thumbnails for proof images in admin list.
-- Push notifications backend + admin tools (VAPID).
+### Добавлено
+- Главная страница «Кабинет сотрудника» с квестами, наградами и прогрессом.
+- Отправка квестов на проверку с фото/скрином и ручным подтверждением.
+- Табель уборки (дежурства) на странице сотрудника.
+- PWA-ассеты (manifest, service worker, иконки приложения).
+- Быстрые действия в админке: одобрить/отклонить отправку.
+- Миниатюры фото в списке отправок админки.
+- Бэкенд и админ-инструменты для push-уведомлений (VAPID).
 
-### Changed
-- Admin theme forced to light for review convenience.
-- Frontend API layer expanded for quests/duties/leaderboard.
-- Reward badges styling and completion button highlight.
-- Leaderboard trimmed to top 5 on staff page.
+### Изменено
+- Админка принудительно в светлой теме.
+- Расширен фронтовый API слой (квесты/дежурства/лидерборд).
+- Подсветка наград и кнопки «Выполнено».
+- Лидерборд на главной — топ‑5.
 
-### Notes
-- Local env requires `backend/.env` for VAPID keys when testing push.
-- Django debug set via `DJANGO_DEBUG=1` for local runs.
+### Примечания
+- Для push локально нужен `backend/.env` с VAPID‑ключами.
+- Для локального запуска ставим `DJANGO_DEBUG=1`.
