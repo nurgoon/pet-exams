@@ -112,6 +112,46 @@ docker compose -p pet-exams logs -f frontend
 docker compose -p pet-exams exec backend python manage.py createsuperuser
 ```
 
+## 6.1 Медиа-файлы (загрузки пользователей)
+
+Чтобы превью файлов открывались в админке, нужно:
+
+1) Создать каталог для медиа и выдать права:
+
+```bash
+sudo mkdir -p /var/www/pet-media
+sudo chown -R www-data:www-data /var/www/pet-media
+```
+
+2) Примонтировать медиакаталог в контейнер backend:
+
+```yaml
+services:
+  backend:
+    volumes:
+      - /var/www/pet-media:/app/media
+```
+
+После правки:
+```bash
+docker compose -p pet-exams up -d --force-recreate backend
+```
+
+3) Раздача медиа через Nginx:
+
+```nginx
+location /media/ {
+    alias /var/www/pet-media/;
+    autoindex off;
+}
+```
+
+Проверка:
+```bash
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
 ## 7. Открыть приложение
 
 - Сайт: `http://SERVER_IP:APP_PORT`

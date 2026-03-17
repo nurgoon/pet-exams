@@ -9,6 +9,7 @@ services:
         required: false
     volumes:
       - ./backend/db.sqlite3:/app/db.sqlite3
+      - /var/www/pet-media:/app/media
     expose:
       - "8000"
     healthcheck:
