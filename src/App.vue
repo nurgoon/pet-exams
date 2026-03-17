@@ -880,7 +880,6 @@ onBeforeUnmount(() => {
             {{ onboardingCountdown > 0 ? 'Отправить снова через ' + onboardingCountdown + 'с' : 'Отправить код снова' }}
           </button>
         </div>
-        </button>
       </article>
     </section>
 
@@ -1263,5 +1262,6 @@ onBeforeUnmount(() => {
     </footer>
   </div>
 </template>
+
 
 
