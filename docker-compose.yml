@@ -13,7 +13,7 @@ services:
     expose:
       - "8000"
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/exams/', timeout=2)"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/admin/login/', timeout=2)"]
       interval: 5s
       timeout: 3s
       retries: 30
@@ -29,3 +29,4 @@ services:
         condition: service_healthy
     ports:
       - "${APP_BIND_IP:-127.0.0.1}:${APP_PORT:-18080}:80"
+
