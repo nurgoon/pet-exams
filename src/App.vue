@@ -6,7 +6,7 @@ import {
   saveLearningRecords,
   saveSprintResult,
 } from './lib/storage'
-import { fetchAttempts, fetchExams, fetchUserStats, requestSmsCode, submitAttempt, verifySmsCode } from './lib/api'
+import { fetchAttempts, fetchExams, fetchUserStats, requestCallCheck, submitAttempt, verifyCallCheck } from './lib/api'
 import { exams as seedExams } from './data/exams'
 import type { Attempt, Exam, ExamQuestion, LearningRecord, SprintResult } from './types'
 import StaffHome from './components/StaffHome.vue'
@@ -45,8 +45,9 @@ const userName = ref(onboardingDone.value ? storedUserName : '')
 const selectedSubject = ref('all')
 const onboardingName = ref(storedUserName)
 const onboardingPhone = ref(storedUserPhone)
-const onboardingCode = ref('')
-const onboardingStep = ref<'details' | 'code'>('details')
+const onboardingCallPhone = ref('')
+const onboardingCallPretty = ref('')
+const onboardingStep = ref<'details' | 'call'>('details')
 const onboardingAccepted = ref(false)
 const onboardingSending = ref(false)
 const onboardingVerifying = ref(false)
@@ -307,7 +308,8 @@ const toggleTheme = (): void => {
 }
 
 const resetOnboardingState = (): void => {
-  onboardingCode.value = ''
+  onboardingCallPhone.value = ''
+  onboardingCallPretty.value = ''
   onboardingStep.value = 'details'
   onboardingSending.value = false
   onboardingVerifying.value = false
@@ -356,15 +358,16 @@ const requestOnboardingCode = async (): Promise<void> => {
   onboardingSending.value = true
   onboardingError.value = null
   try {
-    const result = await requestSmsCode({ userName: normalizedName, phone: normalizedPhone })
-    onboardingStep.value = 'code'
-    onboardingCode.value = ''
+    const result = await requestCallCheck({ userName: normalizedName, phone: normalizedPhone })
+    onboardingStep.value = 'call'
+    onboardingCallPhone.value = result.call_phone || ''
+    onboardingCallPretty.value = result.call_phone_pretty || result.call_phone || ''
     startOnboardingCountdown(60)
     if (result?.expires_in) {
       startOnboardingCountdown(Math.min(60, result.expires_in))
     }
   } catch (err) {
-    onboardingError.value = err instanceof Error ? err.message : 'Не удалось отправить код'
+    onboardingError.value = err instanceof Error ? err.message : 'Не удалось запросить звонок'
   } finally {
     onboardingSending.value = false
   }
@@ -373,24 +376,30 @@ const requestOnboardingCode = async (): Promise<void> => {
 const verifyOnboardingCode = async (): Promise<void> => {
   const normalizedName = onboardingName.value.trim()
   const normalizedPhone = onboardingPhone.value.trim()
-  const code = onboardingCode.value.trim()
-  if (!normalizedName || !normalizedPhone || !code) {
-    onboardingError.value = 'Введи код из SMS.'
+  if (!normalizedName || !normalizedPhone) {
+    onboardingError.value = 'Укажи имя и телефон.'
     return
   }
   onboardingVerifying.value = true
   onboardingError.value = null
   try {
-    await verifySmsCode({ userName: normalizedName, phone: normalizedPhone, code })
-    userName.value = normalizedName
-    onboardingDone.value = true
-    localStorage.setItem('pet-user-name', normalizedName)
-    localStorage.setItem('pet-user-phone', normalizedPhone)
-    localStorage.setItem('pet-onboarding-done', '1')
-    resetOnboardingState()
-    void loadBackendData()
+    const result = await verifyCallCheck({ userName: normalizedName, phone: normalizedPhone })
+    if (result.verified) {
+      userName.value = normalizedName
+      onboardingDone.value = true
+      localStorage.setItem('pet-user-name', normalizedName)
+      localStorage.setItem('pet-user-phone', normalizedPhone)
+      localStorage.setItem('pet-onboarding-done', '1')
+      resetOnboardingState()
+      void loadBackendData()
+    } else {
+      onboardingError.value =
+        result.status === 'expired'
+          ? 'Время ожидания истекло. Запроси звонок снова.'
+          : 'Звонок еще не подтвержден. Попробуй снова через пару секунд.'
+    }
   } catch (err) {
-    onboardingError.value = err instanceof Error ? err.message : 'Не удалось подтвердить код'
+    onboardingError.value = err instanceof Error ? err.message : 'Не удалось проверить звонок'
   } finally {
     onboardingVerifying.value = false
   }
@@ -843,7 +852,7 @@ onBeforeUnmount(() => {
           </div>
           <h1>Добро пожаловать</h1>
         </div>
-        <p class="lead">Для входа укажи имя и телефон, затем подтверди код из SMS.</p>
+        <p class="lead">Для входа укажи имя и телефон, затем подтверди вход звонком.</p>
         <label class="username-field">
           Как вас зовут
           <input v-model="onboardingName" type="text" maxlength="30" placeholder="Например, Анна" />
@@ -865,19 +874,20 @@ onBeforeUnmount(() => {
         <p v-if="onboardingError" class="error">{{ onboardingError }}</p>
         <div v-if="onboardingStep === 'details'" class="onboarding-actions">
           <button class="cta" :disabled="onboardingSending || !onboardingName.trim() || !onboardingPhone.trim() || !onboardingAccepted" @click="requestOnboardingCode">
-            {{ onboardingSending ? 'Отправка...' : 'Получить код' }}
+            {{ onboardingSending ? 'Отправка...' : 'Получить звонок' }}
           </button>
         </div>
         <div v-else class="onboarding-actions onboarding-code">
-          <label class="username-field">
-            Код из SMS
-            <input v-model="onboardingCode" type="text" inputmode="numeric" maxlength="8" placeholder="1234" />
-          </label>
-          <button class="cta" :disabled="onboardingVerifying || !onboardingCode.trim()" @click="verifyOnboardingCode">
-            {{ onboardingVerifying ? 'Проверка...' : 'Подтвердить' }}
+          <div class="username-field">
+            <span>Позвони на номер</span>
+            <strong class="call-number">{{ onboardingCallPretty || onboardingCallPhone }}</strong>
+            <a v-if="onboardingCallPhone" class="ghost-button" :href="`tel:${onboardingCallPhone}`">Позвонить</a>
+          </div>
+          <button class="cta" :disabled="onboardingVerifying" @click="verifyOnboardingCode">
+            {{ onboardingVerifying ? 'Проверка...' : 'Проверить звонок' }}
           </button>
           <button class="ghost-button" :disabled="onboardingCountdown > 0 || onboardingSending" @click="requestOnboardingCode">
-            {{ onboardingCountdown > 0 ? 'Отправить снова через ' + onboardingCountdown + 'с' : 'Отправить код снова' }}
+            {{ onboardingCountdown > 0 ? 'Запросить снова через ' + onboardingCountdown + 'с' : 'Запросить звонок снова' }}
           </button>
         </div>
       </article>
@@ -1262,5 +1272,3 @@ onBeforeUnmount(() => {
     </footer>
   </div>
 </template>
-
-

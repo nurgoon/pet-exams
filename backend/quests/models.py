@@ -29,6 +29,8 @@ class Employee(models.Model):
     phone_code_expires_at = models.DateTimeField('Phone code expires at', null=True, blank=True)
     phone_code_attempts = models.IntegerField('Phone code attempts', default=0)
     phone_code_last_sent_at = models.DateTimeField('Phone code last sent at', null=True, blank=True)
+    phone_call_check_id = models.CharField('Phone call check id', max_length=64, blank=True, default='')
+    phone_call_expires_at = models.DateTimeField('Phone call expires at', null=True, blank=True)
     created_at = models.DateTimeField('Создан', auto_now_add=True)
     updated_at = models.DateTimeField('Обновлен', auto_now=True)
 

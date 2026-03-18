@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import random
 import re
@@ -24,6 +25,10 @@ def normalize_phone(raw: str) -> Optional[str]:
     if len(digits) != 11 or not digits.startswith('7'):
         return None
     return f'+{digits}'
+
+
+def smsru_phone(phone: str) -> str:
+    return PHONE_DIGITS_RE.sub('', phone or '')
 
 
 def generate_sms_code(length: int = 4) -> str:
@@ -56,3 +61,25 @@ def send_sms_ru(*, api_key: str, sender: str, phone: str, message: str, timeout:
     url = f'https://sms.ru/sms/send?{urlencode(params)}'
     with urlopen(url, timeout=timeout) as response:
         return response.read().decode('utf-8').strip()
+
+
+def send_callcheck_add(*, api_key: str, phone: str, timeout: int = 8) -> dict:
+    params = {
+        'api_id': api_key,
+        'phone': smsru_phone(phone),
+        'json': 1,
+    }
+    url = f'https://sms.ru/callcheck/add?{urlencode(params)}'
+    with urlopen(url, timeout=timeout) as response:
+        return json.loads(response.read().decode('utf-8'))
+
+
+def send_callcheck_status(*, api_key: str, check_id: str, timeout: int = 8) -> dict:
+    params = {
+        'api_id': api_key,
+        'check_id': check_id,
+        'json': 1,
+    }
+    url = f'https://sms.ru/callcheck/status?{urlencode(params)}'
+    with urlopen(url, timeout=timeout) as response:
+        return json.loads(response.read().decode('utf-8'))

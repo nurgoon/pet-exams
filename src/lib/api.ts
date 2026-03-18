@@ -243,18 +243,17 @@ export const fetchQuestProfile = async (userName: string): Promise<QuestProfile>
   }
 }
 
-export const requestSmsCode = async (payload: {
+export const requestCallCheck = async (payload: {
   userName: string
   phone: string
-}): Promise<{ sent: boolean; expires_in: number }> =>
-  post('/auth/request_code/', { user_name: payload.userName, phone: payload.phone })
+}): Promise<{ sent: boolean; expires_in: number; call_phone?: string; call_phone_pretty?: string }> =>
+  post('/auth/request_call/', { user_name: payload.userName, phone: payload.phone })
 
-export const verifySmsCode = async (payload: {
+export const verifyCallCheck = async (payload: {
   userName: string
   phone: string
-  code: string
-}): Promise<{ verified: boolean }> =>
-  post('/auth/verify_code/', { user_name: payload.userName, phone: payload.phone, code: payload.code })
+}): Promise<{ verified: boolean; status?: 'pending' | 'expired' | 'error' }> =>
+  post('/auth/check_call/', { user_name: payload.userName, phone: payload.phone })
 
 export const fetchQuests = async (userName: string): Promise<Quest[]> => {
   const data = await get<ApiQuest[]>(`/quests/?user_name=${encodeURIComponent(userName)}`)

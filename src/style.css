@@ -71,6 +71,14 @@ body {
   gap: 12px;
 }
 
+.onboarding-code .call-number {
+  display: block;
+  margin-top: 6px;
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
 .onboarding-top {
   display: grid;
   justify-items: center;
@@ -1226,5 +1234,4 @@ button:disabled {
     transform: translateY(0);
   }
 }
-
 

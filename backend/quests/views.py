@@ -9,7 +9,15 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import DutyAssignment, Employee, EmployeeWallet, Quest, QuestCompletion, QuestSubmission
-from .utils import can_send_sms, generate_sms_code, hash_sms_code, normalize_phone, send_sms_ru
+from .utils import (
+    can_send_sms,
+    generate_sms_code,
+    hash_sms_code,
+    normalize_phone,
+    send_callcheck_add,
+    send_callcheck_status,
+    send_sms_ru,
+)
 from .serializers import (
     CompleteQuestSerializer,
     DutyAssignmentSerializer,
@@ -402,3 +410,127 @@ class VerifySmsCodeAPIView(APIView):
         )
 
         return Response({'verified': True})
+
+
+class RequestCallCheckAPIView(APIView):
+    def post(self, request):
+        user_name = (request.data.get('user_name') or '').strip()
+        raw_phone = (request.data.get('phone') or '').strip()
+        if not user_name:
+            return Response({'detail': 'user_name required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        phone = normalize_phone(raw_phone)
+        if not phone:
+            return Response({'detail': 'invalid phone'}, status=status.HTTP_400_BAD_REQUEST)
+
+        api_key = os.getenv('SMSRU_API_KEY', '').strip()
+        if not api_key:
+            return Response({'detail': 'SMS service not configured'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+        ttl_minutes = int(os.getenv('CALLCHECK_TTL_MINUTES', '5'))
+        cooldown = int(os.getenv('CALLCHECK_COOLDOWN_SECONDS', '60'))
+
+        employee, _ = Employee.objects.get_or_create(name=user_name)
+        if employee.phone_verified and employee.phone and employee.phone != phone:
+            return Response({'detail': 'phone mismatch'}, status=status.HTTP_403_FORBIDDEN)
+
+        if not can_send_sms(employee.phone_code_last_sent_at, cooldown):
+            return Response({'detail': 'code already sent, try later'}, status=status.HTTP_429_TOO_MANY_REQUESTS)
+
+        employee.phone = phone
+        employee.phone_code_hash = ''
+        employee.phone_code_expires_at = None
+        employee.phone_code_attempts = 0
+        employee.phone_code_last_sent_at = timezone.now()
+        employee.phone_verified = False
+
+        call_response = send_callcheck_add(api_key=api_key, phone=phone)
+        if call_response.get('status') != 'OK':
+            return Response({'detail': 'call failed', 'provider': call_response}, status=status.HTTP_502_BAD_GATEWAY)
+
+        check_id = call_response.get('check_id')
+        if not check_id:
+            return Response({'detail': 'call failed', 'provider': call_response}, status=status.HTTP_502_BAD_GATEWAY)
+
+        employee.phone_call_check_id = str(check_id)
+        employee.phone_call_expires_at = timezone.now() + timedelta(minutes=ttl_minutes)
+        employee.save(
+            update_fields=[
+                'phone',
+                'phone_code_hash',
+                'phone_code_expires_at',
+                'phone_code_attempts',
+                'phone_code_last_sent_at',
+                'phone_verified',
+                'phone_call_check_id',
+                'phone_call_expires_at',
+                'updated_at',
+            ]
+        )
+
+        return Response(
+            {
+                'sent': True,
+                'expires_in': ttl_minutes * 60,
+                'call_phone': call_response.get('call_phone') or '',
+                'call_phone_pretty': call_response.get('call_phone_pretty') or '',
+                'call_phone_html': call_response.get('call_phone_html') or '',
+            }
+        )
+
+
+class VerifyCallCheckAPIView(APIView):
+    def post(self, request):
+        user_name = (request.data.get('user_name') or '').strip()
+        raw_phone = (request.data.get('phone') or '').strip()
+        if not user_name or not raw_phone:
+            return Response({'detail': 'user_name, phone required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        phone = normalize_phone(raw_phone)
+        if not phone:
+            return Response({'detail': 'invalid phone'}, status=status.HTTP_400_BAD_REQUEST)
+
+        employee = Employee.objects.filter(name=user_name).first()
+        if not employee:
+            return Response({'detail': 'user not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        if employee.phone != phone:
+            return Response({'detail': 'phone mismatch'}, status=status.HTTP_403_FORBIDDEN)
+
+        if employee.phone_verified:
+            return Response({'verified': True})
+
+        if not employee.phone_call_check_id or not employee.phone_call_expires_at:
+            return Response({'detail': 'call not requested'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if employee.phone_call_expires_at < timezone.now():
+            return Response({'detail': 'call expired'}, status=status.HTTP_400_BAD_REQUEST)
+
+        api_key = os.getenv('SMSRU_API_KEY', '').strip()
+        if not api_key:
+            return Response({'detail': 'SMS service not configured'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+
+        status_response = send_callcheck_status(api_key=api_key, check_id=employee.phone_call_check_id)
+        if status_response.get('status') != 'OK':
+            return Response({'detail': 'call status failed', 'provider': status_response}, status=status.HTTP_502_BAD_GATEWAY)
+
+        check_status = str(status_response.get('check_status') or '')
+
+        if check_status == '401':
+            employee.phone_verified = True
+            employee.phone_call_check_id = ''
+            employee.phone_call_expires_at = None
+            employee.save(
+                update_fields=[
+                    'phone_verified',
+                    'phone_call_check_id',
+                    'phone_call_expires_at',
+                    'updated_at',
+                ]
+            )
+            return Response({'verified': True})
+
+        if check_status == '402':
+            return Response({'verified': False, 'status': 'expired'}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response({'verified': False, 'status': 'pending'})
