@@ -78,7 +78,7 @@ const getAuthHeaders = (): Record<string, string> => {
     return {}
   }
   return {
-    'X-User-Name': userName,
+    'X-User-Name': encodeURIComponent(userName),
     'X-User-Phone': userPhone,
   }
 }
