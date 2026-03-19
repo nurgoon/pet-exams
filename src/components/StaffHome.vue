@@ -22,6 +22,7 @@ const loading = ref(false)
 const error = ref<string | null>(null)
 const completingId = ref<string | null>(null)
 const uploadingId = ref<string | null>(null)
+const rewardedId = ref<string | null>(null)
 const proofFiles = ref<Record<string, File | null>>({})
 const soundEnabled = ref(localStorage.getItem('protocol-sound') !== '0')
 
@@ -137,6 +138,12 @@ const complete = async (quest: Quest): Promise<void> => {
   try {
     await completeQuest(quest.id, { userName: normalized })
     playSound('success')
+    rewardedId.value = quest.id
+    window.setTimeout(() => {
+      if (rewardedId.value === quest.id) {
+        rewardedId.value = null
+      }
+    }, 900)
     await load()
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Не удалось выполнить задачу'
@@ -240,11 +247,12 @@ watch(
         </p>
       </div>
       <div class="hero-controls staff-hero-controls">
-        <div class="staff-stats">
-          <div class="staff-stat">
-            <span>Опыт</span>
-            <strong>{{ expLabel }}</strong>
-          </div>
+          <div class="staff-stats">
+            <div class="staff-stat">
+              <span>Опыт</span>
+              <strong>{{ expLabel }}</strong>
+              <small class="muted">Ур. {{ levelInfo.level }} · {{ levelInfo.current }} / {{ levelInfo.step }} XP</small>
+            </div>
           <div class="staff-stat">
             <span>Награда</span>
             <strong>{{ rubLabel }}</strong>
@@ -382,7 +390,7 @@ watch(
             />
             <button
               class="cta"
-              :class="{ 'cta-success': quest.completed }"
+              :class="{ 'cta-success': quest.completed, 'reward-pop': rewardedId === quest.id }"
               :disabled="
                 quest.completed ||
                 quest.submissionStatus === 'pending' ||
