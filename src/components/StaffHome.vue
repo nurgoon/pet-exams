@@ -58,6 +58,38 @@ const isBonusQuest = (quest: Quest): boolean => {
   return quest.rewardRubCents > 0 || category.includes('чист') || category.includes('уборк')
 }
 
+const questIcons = {
+  cleaning: {
+    src: 'https://lftz25oez4aqbxpq.public.blob.vercel-storage.com/image-UcGo0Y7L4WfuBuX4pSAc1LnhyGgUlu.png',
+    alt: 'Cleaning icon',
+  },
+  sales: {
+    src: 'https://lftz25oez4aqbxpq.public.blob.vercel-storage.com/image-73pNGHJBFF75t0zRsAgQInW9DAM4vd.png',
+    alt: 'Sales icon',
+  },
+  marketing: {
+    src: 'https://lftz25oez4aqbxpq.public.blob.vercel-storage.com/image-GNGLsMOruOXjdF1rtx2ajfpU3YzrIS.png',
+    alt: 'Marketing icon',
+  },
+  shift: {
+    src: 'https://lftz25oez4aqbxpq.public.blob.vercel-storage.com/image-Ugm39CKBkd5PT6FpJkgvrkeKQmGBfZ.png',
+    alt: 'Shift icon',
+  },
+  default: {
+    src: 'https://lftz25oez4aqbxpq.public.blob.vercel-storage.com/image-rgJwkWTrzrocDwMgi5sD0jwpdnH5Ot.png',
+    alt: 'Task icon',
+  },
+}
+
+const getQuestIcon = (quest: Quest) => {
+  const category = (quest.category || '').toLowerCase()
+  if (category.includes('чист') || category.includes('уборк')) return questIcons.cleaning
+  if (category.includes('прод') || category.includes('клиент')) return questIcons.sales
+  if (category.includes('маркет') || category.includes('объяв')) return questIcons.marketing
+  if (category.includes('смен')) return questIcons.shift
+  return questIcons.default
+}
+
 const bonusQuests = computed(() => quests.value.filter((quest) => isBonusQuest(quest)))
 const filteredQuests = computed(() => (questFilter.value === 'bonus' ? bonusQuests.value : quests.value))
 const perfectDay = computed(() => questsTotal.value > 0 && questProgress.value >= 100)
@@ -350,6 +382,9 @@ watch(
           class="quest-row"
           :class="{ done: quest.completed, 'quest-row--bonus': isBonusQuest(quest) }"
         >
+          <div class="quest-icon">
+            <img :src="getQuestIcon(quest).src" :alt="getQuestIcon(quest).alt" loading="lazy" />
+          </div>
           <div class="quest-main">
             <div class="quest-topline">
               <strong class="quest-title">{{ quest.title }}</strong>

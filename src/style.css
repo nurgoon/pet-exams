@@ -1045,22 +1045,39 @@ button:disabled {
   margin-top: 10px;
   display: grid;
   gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
 }
 
 .quest-row {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: auto 1fr auto;
   gap: 12px;
   align-items: center;
   border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 12px;
+  border-radius: 18px;
+  padding: 14px;
   background: var(--surface-soft);
 }
 
 .quest-row--bonus {
   border-color: rgba(245, 158, 11, 0.5);
   box-shadow: 0 6px 18px rgba(245, 158, 11, 0.12);
+}
+
+.quest-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--border));
+  background: color-mix(in srgb, var(--surface) 70%, var(--accent-soft));
+  display: grid;
+  place-items: center;
+}
+
+.quest-icon img {
+  width: 30px;
+  height: 30px;
+  object-fit: contain;
 }
 
 .quest-row.done {
