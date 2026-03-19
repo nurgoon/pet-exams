@@ -467,6 +467,44 @@ button:disabled {
   background: var(--cta-bg);
 }
 
+.progress-track.thin {
+  height: 6px;
+}
+
+.progress-bar.accent {
+  background: linear-gradient(90deg, #f59e0b, #facc15);
+}
+
+.streak-row {
+  font-weight: 600;
+}
+
+.perfect-day {
+  margin-top: 6px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: linear-gradient(120deg, rgba(16, 185, 129, 0.18), rgba(59, 130, 246, 0.15));
+  border: 1px dashed rgba(16, 185, 129, 0.45);
+  font-weight: 600;
+  text-align: center;
+  animation: pulseGlow 1.6s ease-in-out infinite;
+}
+
+@keyframes pulseGlow {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 rgba(16, 185, 129, 0.2);
+  }
+  50% {
+    transform: scale(1.01);
+    box-shadow: 0 8px 24px rgba(16, 185, 129, 0.25);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 rgba(16, 185, 129, 0.2);
+  }
+}
+
 .question-block h3 {
   margin: 8px 0 18px;
   font-size: 36px;
@@ -957,7 +995,7 @@ button:disabled {
 
 .staff-stats {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
   width: 100%;
 }
@@ -984,6 +1022,18 @@ button:disabled {
   gap: 8px;
 }
 
+.quest-actions-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.quest-actions-head .ghost-button.active {
+  border-color: var(--accent);
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+}
+
 .staff-section-head {
   display: flex;
   justify-content: space-between;
@@ -1006,6 +1056,11 @@ button:disabled {
   border-radius: 12px;
   padding: 12px;
   background: var(--surface-soft);
+}
+
+.quest-row--bonus {
+  border-color: rgba(245, 158, 11, 0.5);
+  box-shadow: 0 6px 18px rgba(245, 158, 11, 0.12);
 }
 
 .quest-row.done {
@@ -1038,6 +1093,12 @@ button:disabled {
 
 .quest-chip.subtle {
   border-color: color-mix(in srgb, var(--accent) 22%, var(--button-border));
+}
+
+.quest-chip.rare {
+  background: rgba(245, 158, 11, 0.18);
+  border-color: rgba(245, 158, 11, 0.45);
+  color: #f59e0b;
 }
 
 .quest-rewards {
@@ -1234,4 +1295,3 @@ button:disabled {
     transform: translateY(0);
   }
 }
-

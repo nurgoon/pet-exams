@@ -41,6 +41,45 @@ const questsDone = computed(() => quests.value.filter((quest) => quest.completed
 const questsTotal = computed(() => quests.value.length)
 const questProgress = computed(() => (questsTotal.value ? Math.round((questsDone.value / questsTotal.value) * 100) : 0))
 const leaderboardShort = computed(() => leaderboard.value.slice(0, 5))
+const questFilter = ref<'all' | 'bonus'>('all')
+
+const levelInfo = computed(() => {
+  const exp = profile.value?.exp ?? 0
+  const step = 120
+  const level = Math.max(1, Math.floor(exp / step) + 1)
+  const current = exp % step
+  const progress = Math.round((current / step) * 100)
+  return { level, current, step, progress }
+})
+
+const isBonusQuest = (quest: Quest): boolean => {
+  const category = (quest.category || '').toLowerCase()
+  return quest.rewardRubCents > 0 || category.includes('чист') || category.includes('уборк')
+}
+
+const bonusQuests = computed(() => quests.value.filter((quest) => isBonusQuest(quest)))
+const filteredQuests = computed(() => (questFilter.value === 'bonus' ? bonusQuests.value : quests.value))
+const perfectDay = computed(() => questsTotal.value > 0 && questProgress.value >= 100)
+
+const streak = ref(Number(localStorage.getItem('pet-streak') || '0'))
+const streakDate = ref(localStorage.getItem('pet-streak-date') || '')
+
+const getLocalDateKey = () => {
+  const now = new Date()
+  const yyyy = now.getFullYear()
+  const mm = String(now.getMonth() + 1).padStart(2, '0')
+  const dd = String(now.getDate()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd}`
+}
+
+const getYesterdayKey = () => {
+  const now = new Date()
+  now.setDate(now.getDate() - 1)
+  const yyyy = now.getFullYear()
+  const mm = String(now.getMonth() + 1).padStart(2, '0')
+  const dd = String(now.getDate()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd}`
+}
 
 const todayIso = computed(() => {
   const now = new Date()
@@ -170,13 +209,32 @@ watch(
 onMounted(() => {
   void load()
 })
+
+watch(
+  () => [questProgress.value, questsTotal.value],
+  ([progress, total]) => {
+    if (!total || progress < 100) {
+      return
+    }
+    const todayKey = getLocalDateKey()
+    if (streakDate.value === todayKey) {
+      return
+    }
+    const yesterdayKey = getYesterdayKey()
+    const nextStreak = streakDate.value === yesterdayKey ? streak.value + 1 : 1
+    streak.value = nextStreak
+    streakDate.value = todayKey
+    localStorage.setItem('pet-streak', String(nextStreak))
+    localStorage.setItem('pet-streak-date', todayKey)
+  }
+)
 </script>
 
 <template>
   <section class="panel-stack staff-stack">
     <article class="card hero staff-hero">
       <div>
-        <h1>Кабинет сотрудника</h1>
+        <h1>Профиль игрока</h1>
         <p class="lead">
           Сегодня: <strong>{{ todayLabel }}</strong>
         </p>
@@ -192,8 +250,12 @@ onMounted(() => {
             <strong>{{ rubLabel }}</strong>
           </div>
           <div class="staff-stat">
-            <span>Выполнено сегодня</span>
+            <span>Завершено сегодня</span>
             <strong>{{ completedToday }}</strong>
+          </div>
+          <div class="staff-stat">
+            <span>Уровень</span>
+            <strong>Ур. {{ levelInfo.level }}</strong>
           </div>
         </div>
         <div class="staff-progress">
@@ -204,7 +266,18 @@ onMounted(() => {
           <div class="progress-track">
             <div class="progress-bar" :style="{ width: `${questProgress}%` }"></div>
           </div>
-          <p class="muted">Выполнено: {{ questsDone }} / {{ questsTotal }}</p>
+          <p class="muted">Завершено: {{ questsDone }} / {{ questsTotal }}</p>
+          <div class="progress-row level-row">
+            <span>Уровень {{ levelInfo.level }}</span>
+            <strong>{{ levelInfo.current }} / {{ levelInfo.step }} XP</strong>
+          </div>
+          <div class="progress-track thin">
+            <div class="progress-bar accent" :style="{ width: `${levelInfo.progress}%` }"></div>
+          </div>
+          <p class="muted streak-row">🔥 Стрик: {{ streak }} дня</p>
+          <div v-if="perfectDay" class="perfect-day">
+            🎉 Идеальный день! Бонус +50%
+          </div>
         </div>
       </div>
     </article>
@@ -238,20 +311,42 @@ onMounted(() => {
     <article class="card">
       <div class="staff-section-head">
         <div>
-          <h2>Квесты и задания</h2>
+          <h2>Квестборд</h2>
           <p class="muted">Каждая выполненная задача приносит EXP и/или ₽.</p>
         </div>
-        <button :disabled="loading" @click="load">Обновить</button>
+        <div class="quest-actions-head">
+          <button
+            class="ghost-button"
+            :class="{ active: questFilter === 'all' }"
+            @click="questFilter = 'all'"
+          >
+            Все
+          </button>
+          <button
+            class="ghost-button"
+            :class="{ active: questFilter === 'bonus' }"
+            @click="questFilter = 'bonus'"
+          >
+            Бонусные
+          </button>
+          <button :disabled="loading" @click="load">Обновить</button>
+        </div>
       </div>
 
       <p v-if="error" class="error">{{ error }}</p>
 
-      <div v-if="quests.length" class="quest-list">
-        <div v-for="quest in quests" :key="quest.id" class="quest-row" :class="{ done: quest.completed }">
+      <div v-if="filteredQuests.length" class="quest-list">
+        <div
+          v-for="quest in filteredQuests"
+          :key="quest.id"
+          class="quest-row"
+          :class="{ done: quest.completed, 'quest-row--bonus': isBonusQuest(quest) }"
+        >
           <div class="quest-main">
             <div class="quest-topline">
               <strong class="quest-title">{{ quest.title }}</strong>
               <span v-if="quest.category" class="quest-chip">{{ quest.category }}</span>
+              <span v-if="isBonusQuest(quest)" class="quest-chip rare">Редкий квест</span>
               <span class="quest-chip subtle">{{ quest.repeat === 'daily' ? 'ежедневно' : 'один раз' }}</span>
               <span v-if="quest.submissionStatus === 'pending'" class="quest-chip subtle">на проверке</span>
               <span v-if="quest.submissionStatus === 'rejected'" class="quest-chip subtle">отклонено</span>
@@ -261,8 +356,16 @@ onMounted(() => {
               {{ quest.reviewComment }}
             </p>
             <div class="quest-rewards">
-              <span v-if="quest.rewardExp" class="reward-pill reward-exp">+{{ quest.rewardExp }} EXP</span>
-              <span v-if="quest.rewardRubCents" class="reward-pill reward-rub">+{{ (quest.rewardRubCents / 100).toFixed(2) }} ₽</span>
+              <span v-if="quest.rewardExp" class="reward-pill reward-exp" title="+EXP влияет на уровень">
+                +{{ quest.rewardExp }} EXP
+              </span>
+              <span
+                v-if="quest.rewardRubCents"
+                class="reward-pill reward-rub"
+                title="Денежная награда"
+              >
+                +{{ (quest.rewardRubCents / 100).toFixed(2) }} ₽
+              </span>
             </div>
           </div>
 
@@ -290,7 +393,7 @@ onMounted(() => {
             >
               {{
                 quest.completed
-                  ? 'Выполнено'
+                  ? 'Завершено ✅'
                   : quest.submissionStatus === 'pending'
                     ? 'На проверке'
                     : uploadingId === quest.id
